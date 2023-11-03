@@ -4,7 +4,6 @@ import os
 import subprocess
 import glob
 import sys
-import glob
 from utils import ask_yes_no_question
 
 class bcolors:
@@ -38,6 +37,7 @@ FLAG_EXE_FILE_SET = '='
 FLAG_SAVE_OUTPUT_AFTER_RUN = 'so'
 FLAG_NO_RUN = 'nr'
 FLAG_INTERACTIVE = 'i'
+FLAG_QUIET = 'q'
 
 DOT = '.'
 
@@ -56,10 +56,12 @@ MESSAGE_HELP = f'''{MESSAGE_USAGE}
 
 Optitons:
     -h              Show this help message
-    -i              Interactive compilation
+    -i              Interactive Mode compilation
     -nr             No Running after Compilation (only compile)
     -o=<path>       Set the path where to save the executable file
     -so             Save output file (compilation running output contents, default: '{DEFAULT_OUTPUT_FILE_NAME}')
+    -q              Quiet Mode - Only print compilation errors and running output contents (no {COMMAND_MAIN} text)
+        *Note*: Quiet Mode disables Interactive Mode (all files will be approved)
     
 Examples:
     {COMMAND_MAIN} -h
@@ -72,22 +74,22 @@ MESSAGE_OK = 'Ok'
 CODE_ERROR = 1
 CODE_OK = 0
 
-# Compilations     type out in
-COMPILATION_C   = 'gcc'
+# Compilations
+COMPILATION_C = 'gcc'
 COMPILATION_CPP = 'g++'
 COMPILATIONS = {SOURCE_EXTENSIONS[0]: COMPILATION_C, SOURCE_EXTENSIONS[1]: COMPILATION_CPP}
 
 
-def raise_msg(msg: str, code: int, color: bool = True, exit: bool = False) -> None:
+def raise_msg(msg: str, code: int, flags: list = [], color: bool = True, exit: bool = False, force: bool = False) -> None:
     # Print a message and optionally exit the program
 
-    if (code == CODE_ERROR):
+    if ((code == CODE_ERROR and FLAG_QUIET not in flags) or force):
         if color:
             print(f'{bcolors.BOLD}{bcolors.FAIL}{msg if msg else MESSAGE_ERROR}{bcolors.ENDC}{bcolors.ENDC}')
         else:
             print(f'{msg if msg else MESSAGE_ERROR}')
         sys.exit(CODE_ERROR)
-    elif (code == CODE_OK):
+    elif ((code == CODE_OK and FLAG_QUIET not in flags) or force):
         if color:
             print(f'{bcolors.BOLD}{bcolors.OKGREEN}{msg if msg else MESSAGE_OK}{bcolors.ENDC}{bcolors.ENDC}')
         else:
@@ -110,11 +112,11 @@ def get_files_data(argv: list, flags: list) -> (list, str):
         f_parts_len = len(f_parts)
         # Check if file has extension
         if (f_parts_len <= 1):
-            raise_msg(f"Error: File '{f}' doesn't have an extension.", CODE_ERROR)
+            raise_msg(f"Error: File '{f}' doesn't have an extension.", CODE_ERROR, flags)
         f_extension = f_parts[f_parts_len - 1]
         # Check if file extension is allowed
         if (not f_extension or f_extension not in SOURCE_EXTENSIONS):
-            raise_msg(f"Error: '{f}' file extension is not allowed.", CODE_ERROR)
+            raise_msg(f"Error: '{f}' file extension is not allowed.", CODE_ERROR, flags)
 
         # Check if user want to include all files with the given extension
         if (INCLUDE_ALL_FILES in f):
@@ -124,10 +126,10 @@ def get_files_data(argv: list, flags: list) -> (list, str):
         extensions.append(f_extension)
         # Check if all extensions are the same
         if (extensions and not all(e == extensions[0] for e in extensions)):
-            raise_msg(f"Erorr: Not all file extension are the same.", CODE_ERROR)
+            raise_msg("Erorr: Not all file extension are the same.", CODE_ERROR, flags)
         
         # Append file (check interactive option)
-        if (FLAG_INTERACTIVE not in flags):
+        if (FLAG_INTERACTIVE not in flags or FLAG_QUIET in flags):
             files.append(f)
             continue
         if (ask_yes_no_question(f"Include {bcolors.BOLD}{bcolors.OKCYAN}{f}{bcolors.ENDC}{bcolors.ENDC} in the compilation?", default_answer=True)):            
@@ -139,7 +141,7 @@ def get_files_data(argv: list, flags: list) -> (list, str):
         all_extension_files = glob.glob(f'./*.{f_extension}')
         extension = include_all_files_extension
 
-        if (FLAG_INTERACTIVE in flags):
+        if (FLAG_INTERACTIVE in flags and FLAG_QUIET not in flags):
             for f in all_extension_files:
                 # Append file
                 if (ask_yes_no_question(f"Include {bcolors.BOLD}{bcolors.OKCYAN}{f}{bcolors.ENDC}{bcolors.ENDC} in the compilation?", default_answer=True)):
@@ -148,7 +150,7 @@ def get_files_data(argv: list, flags: list) -> (list, str):
             files = all_extension_files
     
     if (not len(files) > 0):
-        raise_msg('Error: No files.', CODE_ERROR)
+        raise_msg('Error: No files.', CODE_ERROR, flags)
 
     if extensions:
         extension = extensions[0]
@@ -160,7 +162,7 @@ def get_files_data(argv: list, flags: list) -> (list, str):
 def main_compilation(files: list, extension: str, flags: list):
     # Compile the given files with the given flags
 
-    raise_msg(f"Compiling {bcolors.BOLD}{bcolors.OKCYAN}{len(files)}{bcolors.ENDC}{bcolors.ENDC} files...", CODE_OK, color=False, exit=False)
+    raise_msg(f"Compiling {bcolors.BOLD}{bcolors.OKCYAN}{len(files)}{bcolors.ENDC}{bcolors.ENDC} files...", CODE_OK, flags, color=False, exit=False)
 
     executable_filename = DEFAULT_EXE_FILE_NAME
 
@@ -171,51 +173,55 @@ def main_compilation(files: list, extension: str, flags: list):
         _, executable_filename = exe_flags[0].split(FLAG_EXE_FILE_SET)
     # Make sure default doesn't overwrite anything
     elif (os.path.exists(DEFAULT_EXE_FILE_NAME)):
-        raise_msg(f"Error: File '{DEFAULT_EXE_FILE_NAME}' already exists.", CODE_ERROR)
+        raise_msg(f"Error: File '{DEFAULT_EXE_FILE_NAME}' already exists.", CODE_ERROR, flags)
 
     # Run the compilation
     compile_command = [COMPILATIONS[extension], *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
     compilation_res = subprocess.run(compile_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     if (compilation_res.returncode == CODE_OK):
-        raise_msg("Compilation Successful!", CODE_OK)
+        raise_msg("Compilation Successful!", CODE_OK, flags)
     else:
-        raise_msg(f"{compilation_res.stderr}\nCompilation Failed. Exiting...", CODE_ERROR)
+        raise_msg(f"{compilation_res.stderr}\nCompilation Failed. Exiting...", CODE_ERROR, flags, force=True)
 
     # Run executable file
+    run_command = [f'./{executable_filename}']
+    run_res = subprocess.run(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True)
     if (FLAG_NO_RUN not in flags):
-        raise_msg("Running...", CODE_OK)
+        raise_msg("Running...", CODE_OK, flags)
         # Check if executable file exists
         if (not os.path.exists(executable_filename)):
-            raise_msg("Error: Executable File not found.", CODE_ERROR)
+            raise_msg("Error: Executable File not found.", CODE_ERROR, flags)
         run_command = [f'./{executable_filename}']
-        run_res = subprocess.run(run_command, shell=True)
+        run_res = subprocess.run(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True)
+        print(run_res.stdout + run_res.stderr, end='')
 
         if (run_res.returncode == CODE_OK):
-            raise_msg("Done!", CODE_OK)
+            raise_msg("Done!", CODE_OK, flags)
         else:
-            raise_msg("Failed.", CODE_ERROR)
+            raise_msg("Failed.", CODE_ERROR, flags)
 
     # Delete the executable file unless explicit filename for it was set
-    if (not any(exe_flags)):
+    if (not any(exe_flags) and FLAG_EXE_FILE not in flags):
         if (not os.path.exists(executable_filename)):
-            raise_msg("Error: Executable File not found.", CODE_ERROR)
+            raise_msg("Error: Executable File not found.", CODE_ERROR, flags)
         os.remove(executable_filename)
     else:
-        raise_msg(f"Saved Executable File! Executable File: {bcolors.OKCYAN}'{executable_filename}'{bcolors.ENDC}", CODE_OK)
+        raise_msg(f"Saved Executable File! Executable File: {bcolors.OKCYAN}'{executable_filename}'{bcolors.ENDC}", CODE_OK, flags)
 
     # Save output file
-    if (FLAG_SAVE_OUTPUT_AFTER_RUN in flags):
-        if (os.path.exists(DEFAULT_OUTPUT_FILE_NAME) and
-            ask_yes_no_question(f"Found {bcolors.BOLD}{bcolors.OKCYAN}{DEFAULT_OUTPUT_FILE_NAME}{bcolors.ENDC}{bcolors.ENDC} do you want to overwrite it?", default_answer=True)):
+    if (run_res.returncode == CODE_OK and FLAG_SAVE_OUTPUT_AFTER_RUN in flags):
+        if ((os.path.exists(DEFAULT_OUTPUT_FILE_NAME)
+                and ask_yes_no_question(f"Found {bcolors.BOLD}{bcolors.OKCYAN}{DEFAULT_OUTPUT_FILE_NAME}{bcolors.ENDC}{bcolors.ENDC} do you want to overwrite it?", default_answer=True))
+                or (not os.path.exists(DEFAULT_OUTPUT_FILE_NAME))):
             with open(DEFAULT_OUTPUT_FILE_NAME, 'w') as output_file:
-                output_file.write(compilation_res.stdout)
-            raise_msg(f"Saved Output File! Output File: {bcolors.OKCYAN}'{output_file}'{bcolors.ENDC}", CODE_OK)
-
-
+                output_file.write(run_res.stdout)
+            raise_msg(f"Saved Output File! Output File: {bcolors.OKCYAN}'{DEFAULT_OUTPUT_FILE_NAME}'{bcolors.ENDC}", CODE_OK, flags)
 
 def main():
-    print(f"{bcolors.BOLD}{bcolors.WARNING}{PROJECT_NAME}{bcolors.ENDC}{bcolors.ENDC}")
+    flags = []
+
+    raise_msg(f"{bcolors.BOLD}{bcolors.WARNING}{PROJECT_NAME}{bcolors.ENDC}{bcolors.ENDC}", CODE_OK, flags)
 
     argv = sys.argv
 
@@ -229,7 +235,7 @@ def main():
 
     # Show help message if HELP_FLAG
     if (FLAG_HELP in flags or len(argv) <= 1):
-        raise_msg(MESSAGE_HELP, CODE_OK, color=False, exit=True)
+        raise_msg(MESSAGE_HELP, CODE_OK, flags, color=False, exit=True)
 
     # Get files and extension
     files, extension = get_files_data(argv[1:], flags)
@@ -237,9 +243,8 @@ def main():
     main_compilation(files, extension, flags)
 
 
-
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        raise_msg("\nError: KeyboardInterrupt", CODE_ERROR)
+        raise_msg("\nError: KeyboardInterrupt", CODE_ERROR, [])
