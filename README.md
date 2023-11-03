@@ -9,7 +9,7 @@ Usage: gcpr [options] files...
 
 Optitons:
     -h              Show this help message
-    -i              Interactive compilation
+    -i              Interactive Mode compilation
     -nr             No Running after Compilation (only compile)
     -o=<path>       Set the path where to save the executable file
     -so             Save output file (compilation running output contents, default: 'output.txt')

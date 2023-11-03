@@ -219,10 +219,6 @@ def main_compilation(files: list, extension: str, flags: list):
             raise_msg(f"Saved Output File! Output File: {bcolors.OKCYAN}'{DEFAULT_OUTPUT_FILE_NAME}'{bcolors.ENDC}", CODE_OK, flags)
 
 def main():
-    flags = []
-
-    raise_msg(f"{bcolors.BOLD}{bcolors.WARNING}{PROJECT_NAME}{bcolors.ENDC}{bcolors.ENDC}", CODE_OK, flags)
-
     argv = sys.argv
 
     # Get flags
@@ -232,6 +228,9 @@ def main():
     argv = list(filter(lambda i: i not in flags, argv))
     # Remove FLAG_PREFIX from flags
     flags = list(map(lambda i: i.replace(FLAG_PREFIX, ''), flags))
+
+    # Print Project Name
+    raise_msg(f"{bcolors.BOLD}{bcolors.WARNING}{PROJECT_NAME}{bcolors.ENDC}{bcolors.ENDC}", CODE_OK, flags)
 
     # Show help message if HELP_FLAG
     if (FLAG_HELP in flags or len(argv) <= 1):
