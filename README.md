@@ -11,13 +11,12 @@ Optitons:
     -h              Show this help message
     -i              Interactive compilation
     -nr             No Running after Compilation (only compile)
-    -o=<file>       Set executable file name (default: 'program')
-    -s              Save executable file
+    -o=<path>       Set the path where to save the executable file
     -so             Save output file (compilation running output contents, default: 'output.txt')
     
 Examples:
     gcpr -h
-    gcpr -s -o=run_me *.c
+    gcpr -o=run_me *.c
     gcpr -y -nr main.cpp utils.cpp
 ```
 
