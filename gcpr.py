@@ -169,6 +169,9 @@ def main_compilation(files: list, extension: str, flags: list):
     if (any(exe_flags)):
         # Get the executable_name from the first flag (discard others)
         _, executable_filename = exe_flags[0].split(FLAG_EXE_FILE_SET)
+    # Make sure default doesn't overwrite anything
+    elif (os.path.exists(DEFAULT_EXE_FILE_NAME)):
+        raise_msg(f"Error: File '{DEFAULT_EXE_FILE_NAME}' already exists.", CODE_ERROR)
 
     # Run the compilation
     compile_command = [COMPILATIONS[extension], *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
