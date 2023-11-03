@@ -13,6 +13,8 @@ Optitons:
     -nr             No Running after Compilation (only compile)
     -o=<path>       Set the path where to save the executable file
     -so             Save output file (compilation running output contents, default: 'output.txt')
+    -q              Quiet Mode - Only print compilation errors and running output contents (no gcpr text)
+        *Note*: Quiet Mode disables Interactive Mode (all files will be approved)
     
 Examples:
     gcpr -h
