@@ -4,7 +4,6 @@ import os
 import subprocess
 import glob
 import sys
-import re
 import glob
 from utils import ask_yes_no_question
 
@@ -34,10 +33,8 @@ FLAG_MAX_LEN = 2
 # FLAG_ACCEPT_ALL = 'y'
 FLAG_HELP = 'h'
 # Define a regular expression pattern to match the -o=<file_name> pattern
-FLAG_EXE_FILE_PATTERN = r'-o=([^\s]+)'
 FLAG_EXE_FILE = 'o'
 FLAG_EXE_FILE_SET = '='
-FLAG_SAVE_EXE_AFTER_RUN = 's'
 FLAG_SAVE_OUTPUT_AFTER_RUN = 'so'
 FLAG_NO_RUN = 'nr'
 FLAG_INTERACTIVE = 'i'
@@ -61,13 +58,12 @@ Optitons:
     -h              Show this help message
     -i              Interactive compilation
     -nr             No Running after Compilation (only compile)
-    -o=<file>       Set executable file name (default: '{DEFAULT_EXE_FILE_NAME}')
-    -s              Save executable file
+    -o=<path>       Set the path where to save the executable file
     -so             Save output file (compilation running output contents, default: '{DEFAULT_OUTPUT_FILE_NAME}')
     
 Examples:
     {COMMAND_MAIN} -h
-    {COMMAND_MAIN} -s -o=run_me *.c
+    {COMMAND_MAIN} -o=run_me *.c
     {COMMAND_MAIN} -y -nr main.cpp utils.cpp
 '''
 MESSAGE_ERROR = 'Error: Unexpected Error Occurred'
@@ -98,20 +94,6 @@ def raise_msg(msg: str, code: int, color: bool = True, exit: bool = False) -> No
             print(f'{msg if msg else MESSAGE_OK}')            
         if exit:
             sys.exit(CODE_OK)
-    
-
-def get_executable_file_name(argv: list) -> str:
-    # Process the given executable file name from the user or set to default
-
-    executable_filename = DEFAULT_EXE_FILE_NAME
-
-    for a in argv:
-        # Use re.search to find the first match of file executable pattern
-        match = re.search(FLAG_EXE_FILE_PATTERN, a)
-        if (match):
-            executable_filename = match.group(1)
-
-    return executable_filename
 
 def get_files_data(argv: list, flags: list) -> (list, str):
     # Get all the given files
@@ -175,13 +157,21 @@ def get_files_data(argv: list, flags: list) -> (list, str):
     return (files, extension)
 
 
-def main_compilation(files: list, extension: str, executable_filename: str, flags: list):
+def main_compilation(files: list, extension: str, flags: list):
     # Compile the given files with the given flags
 
     raise_msg(f"Compiling {bcolors.BOLD}{bcolors.OKCYAN}{len(files)}{bcolors.ENDC}{bcolors.ENDC} files...", CODE_OK, color=False, exit=False)
 
-    compile_command = [COMPILATIONS[extension], *files, f'{FLAG_PREFIX}{FLAG_EXE_FILE}', executable_filename]
+    executable_filename = DEFAULT_EXE_FILE_NAME
+
+    exe_flags = [flag for flag in flags if flag.startswith(f"{FLAG_EXE_FILE}{FLAG_EXE_FILE_SET}")]
+
+    if (any(exe_flags)):
+        # Get the executable_name from the first flag (discard others)
+        _, executable_filename = exe_flags[0].split(FLAG_EXE_FILE_SET)
+
     # Run the compilation
+    compile_command = [COMPILATIONS[extension], *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
     compilation_res = subprocess.run(compile_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     if (compilation_res.returncode == CODE_OK):
@@ -203,8 +193,8 @@ def main_compilation(files: list, extension: str, executable_filename: str, flag
         else:
             raise_msg("Failed.", CODE_ERROR)
 
-    # Save executable file
-    if (FLAG_SAVE_EXE_AFTER_RUN not in flags):
+    # Delete the executable file unless explicit filename for it was set
+    if (not any(exe_flags)):
         if (not os.path.exists(executable_filename)):
             raise_msg("Error: Executable File not found.", CODE_ERROR)
         os.remove(executable_filename)
@@ -227,13 +217,10 @@ def main():
     argv = sys.argv
 
     # Get flags
-    flags = [i for i in argv if FLAG_PREFIX in i and len(i) <= len(FLAG_PREFIX) + FLAG_MAX_LEN]
-
-    # Get executable file name
-    executable_filename = get_executable_file_name(argv)
+    flags = [i for i in argv if i.startswith(FLAG_PREFIX)]
 
     # Remove flags from argv
-    argv = list(filter(lambda i: i not in flags and executable_filename not in i, argv))
+    argv = list(filter(lambda i: i not in flags, argv))
     # Remove FLAG_PREFIX from flags
     flags = list(map(lambda i: i.replace(FLAG_PREFIX, ''), flags))
 
@@ -244,7 +231,7 @@ def main():
     # Get files and extension
     files, extension = get_files_data(argv[1:], flags)
 
-    main_compilation(files, extension, executable_filename, flags)
+    main_compilation(files, extension, flags)
 
 
 
