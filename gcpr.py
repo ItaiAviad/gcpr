@@ -181,6 +181,8 @@ def main_compilation(files: list, extension: str, flags: list):
     else:
         raise_msg(f"{compilation_res.stderr}\nCompilation Failed. Exiting...", CODE_ERROR, flags, force=True)
 
+    return_code = CODE_OK
+
     # Run executable file
     if (FLAG_NO_RUN not in flags):
         raise_msg("Running...", CODE_OK, flags)
@@ -190,10 +192,18 @@ def main_compilation(files: list, extension: str, flags: list):
         run_command = [f'./{executable_filename}']
         run_res = subprocess.run(run_command, shell=True)
 
-        if (run_res.returncode == CODE_OK):
-            raise_msg("Done!", CODE_OK, flags)
-        else:
-            raise_msg("Failed.", CODE_ERROR, flags)
+        return_code = run_res.returncode
+
+        # Print "Done! Exited with code {code}" and make the code green/red
+        #   based on it's value.
+        raise_msg(
+            f"{bcolors.BOLD}{bcolors.OKGREEN}Done! {bcolors.ENDC}"
+            + (bcolors.FAIL if return_code else bcolors.OKGREEN)
+            + f"Process exited with code [{return_code}].{bcolors.ENDC}{bcolors.ENDC}",
+            CODE_OK,
+            flags,
+            color=False,
+        )
 
     # Delete the executable file unless explicit filename for it was set
     if (not any(exe_flags) and FLAG_EXE_FILE not in flags):
@@ -202,6 +212,8 @@ def main_compilation(files: list, extension: str, flags: list):
         os.remove(executable_filename)
     else:
         raise_msg(f"Saved Executable File! Executable File: {bcolors.OKCYAN}'{executable_filename}'{bcolors.ENDC}", CODE_OK, flags)
+
+    sys.exit(return_code)
 
 def main():
     argv = sys.argv
