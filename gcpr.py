@@ -85,14 +85,15 @@ def raise_msg(msg: str, code: int, flags: list = [], color: bool = True, exit: b
             print(f'{bcolors.BOLD}{bcolors.FAIL}{msg if msg else MESSAGE_ERROR}{bcolors.ENDC}{bcolors.ENDC}')
         else:
             print(f'{msg if msg else MESSAGE_ERROR}')
-        sys.exit(CODE_ERROR)
+        
     elif ((code == CODE_OK and FLAG_QUIET not in flags) or force):
         if color:
             print(f'{bcolors.BOLD}{bcolors.OKGREEN}{msg if msg else MESSAGE_OK}{bcolors.ENDC}{bcolors.ENDC}')
         else:
             print(f'{msg if msg else MESSAGE_OK}')            
-        if exit:
-            sys.exit(CODE_OK)
+
+    if exit:
+        sys.exit(CODE_OK) if code == CODE_OK else sys.exit(CODE_ERROR)
 
 def get_files_data(argv: list, flags: list) -> (list, str):
     # Get all the given files
