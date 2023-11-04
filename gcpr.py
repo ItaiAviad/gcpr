@@ -34,7 +34,6 @@ FLAG_HELP = 'h'
 # Define a regular expression pattern to match the -o=<file_name> pattern
 FLAG_EXE_FILE = 'o'
 FLAG_EXE_FILE_SET = '='
-FLAG_SAVE_OUTPUT_AFTER_RUN = 'so'
 FLAG_NO_RUN = 'nr'
 FLAG_INTERACTIVE = 'i'
 FLAG_QUIET = 'q'
@@ -44,7 +43,6 @@ DOT = '.'
 INCLUDE_ALL_FILES = '*'
 
 DEFAULT_EXE_FILE_NAME = 'program'
-DEFAULT_OUTPUT_FILE_NAME = 'output.txt'
 MAIN_PY = 'gcpr.py'
 
 PROJECT_NAME = 'Gcc/G++ Compile Plus Run'
@@ -59,7 +57,6 @@ Optitons:
     -i              Interactive Mode compilation
     -nr             No Running after Compilation (only compile)
     -o=<path>       Set the path where to save the executable file
-    -so             Save output file (compilation running output contents, default: '{DEFAULT_OUTPUT_FILE_NAME}')
     -q              Quiet Mode - Only print compilation errors and running output contents (no {COMMAND_MAIN} text)
         *Note*: Quiet Mode disables Interactive Mode (all files will be approved)
     
@@ -206,15 +203,6 @@ def main_compilation(files: list, extension: str, flags: list):
         os.remove(executable_filename)
     else:
         raise_msg(f"Saved Executable File! Executable File: {bcolors.OKCYAN}'{executable_filename}'{bcolors.ENDC}", CODE_OK, flags)
-
-    # Save output file
-    if (run_res.returncode == CODE_OK and FLAG_SAVE_OUTPUT_AFTER_RUN in flags):
-        if ((os.path.exists(DEFAULT_OUTPUT_FILE_NAME)
-                and ask_yes_no_question(f"Found {bcolors.BOLD}{bcolors.OKCYAN}{DEFAULT_OUTPUT_FILE_NAME}{bcolors.ENDC}{bcolors.ENDC} do you want to overwrite it?", default_answer=True))
-                or (not os.path.exists(DEFAULT_OUTPUT_FILE_NAME))):
-            with open(DEFAULT_OUTPUT_FILE_NAME, 'w') as output_file:
-                output_file.write(run_res.stdout)
-            raise_msg(f"Saved Output File! Output File: {bcolors.OKCYAN}'{DEFAULT_OUTPUT_FILE_NAME}'{bcolors.ENDC}", CODE_OK, flags)
 
 def main():
     argv = sys.argv
