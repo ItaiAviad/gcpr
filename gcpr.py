@@ -174,7 +174,7 @@ def main_compilation(files: list, extension: str, flags: list):
 
     # Run the compilation
     compile_command = [COMPILATIONS[extension], *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
-    compilation_res = subprocess.run(compile_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    compilation_res = subprocess.run(compile_command)
 
     if (compilation_res.returncode == CODE_OK):
         raise_msg("Compilation Successful!", CODE_OK, flags)
@@ -188,8 +188,7 @@ def main_compilation(files: list, extension: str, flags: list):
         if (not os.path.exists(executable_filename)):
             raise_msg("Error: Executable File not found.", CODE_ERROR, flags)
         run_command = [f'./{executable_filename}']
-        run_res = subprocess.run(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-        print(run_res.stdout + run_res.stderr, end='')
+        run_res = subprocess.run(run_command, shell=True)
 
         if (run_res.returncode == CODE_OK):
             raise_msg("Done!", CODE_OK, flags)
