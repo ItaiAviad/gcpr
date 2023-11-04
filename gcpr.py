@@ -34,7 +34,6 @@ FLAG_HELP = 'h'
 # Define a regular expression pattern to match the -o=<file_name> pattern
 FLAG_EXE_FILE = 'o'
 FLAG_EXE_FILE_SET = '='
-FLAG_SAVE_OUTPUT_AFTER_RUN = 'so'
 FLAG_NO_RUN = 'nr'
 FLAG_INTERACTIVE = 'i'
 FLAG_QUIET = 'q'
@@ -44,7 +43,6 @@ DOT = '.'
 INCLUDE_ALL_FILES = '*'
 
 DEFAULT_EXE_FILE_NAME = 'program'
-DEFAULT_OUTPUT_FILE_NAME = 'output.txt'
 MAIN_PY = 'gcpr.py'
 
 PROJECT_NAME = 'Gcc/G++ Compile Plus Run'
@@ -59,7 +57,6 @@ Optitons:
     -i              Interactive Mode compilation
     -nr             No Running after Compilation (only compile)
     -o=<path>       Set the path where to save the executable file
-    -so             Save output file (compilation running output contents, default: '{DEFAULT_OUTPUT_FILE_NAME}')
     -q              Quiet Mode - Only print compilation errors and running output contents (no {COMMAND_MAIN} text)
         *Note*: Quiet Mode disables Interactive Mode (all files will be approved)
     
@@ -178,29 +175,36 @@ def main_compilation(files: list, extension: str, flags: list):
 
     # Run the compilation
     compile_command = [COMPILATIONS[extension], *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
-    compilation_res = subprocess.run(compile_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    compilation_res = subprocess.run(compile_command)
 
     if (compilation_res.returncode == CODE_OK):
         raise_msg("Compilation Successful!", CODE_OK, flags)
     else:
         raise_msg(f"{compilation_res.stderr}\nCompilation Failed. Exiting...", CODE_ERROR, flags, force=True)
 
+    return_code = CODE_OK
+
     # Run executable file
-    run_command = [f'./{executable_filename}']
-    run_res = subprocess.run(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True)
     if (FLAG_NO_RUN not in flags):
         raise_msg("Running...", CODE_OK, flags)
         # Check if executable file exists
         if (not os.path.exists(executable_filename)):
             raise_msg("Error: Executable File not found.", CODE_ERROR, flags)
         run_command = [f'./{executable_filename}']
-        run_res = subprocess.run(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True)
-        raise_msg(f'{run_res.stdout + run_res.stderr}', CODE_OK, flags, color=False, force=True)
+        run_res = subprocess.run(run_command, shell=True)
 
-        if (run_res.returncode == CODE_OK):
-            raise_msg("Done!", CODE_OK, flags)
-        else:
-            raise_msg("Failed.", CODE_ERROR, flags)
+        return_code = run_res.returncode
+
+        # Print "Done! Exited with code {code}" and make the code green/red
+        #   based on it's value.
+        raise_msg(
+            f"{bcolors.BOLD}{bcolors.OKGREEN}Done! {bcolors.ENDC}"
+            + (bcolors.FAIL if return_code else bcolors.OKGREEN)
+            + f"Process exited with code [{return_code}].{bcolors.ENDC}{bcolors.ENDC}",
+            CODE_OK,
+            flags,
+            color=False,
+        )
 
     # Delete the executable file unless explicit filename for it was set
     if (not any(exe_flags) and FLAG_EXE_FILE not in flags):
@@ -210,14 +214,7 @@ def main_compilation(files: list, extension: str, flags: list):
     else:
         raise_msg(f"Saved Executable File! Executable File: {bcolors.OKCYAN}'{executable_filename}'{bcolors.ENDC}", CODE_OK, flags)
 
-    # Save output file
-    if (run_res.returncode == CODE_OK and FLAG_SAVE_OUTPUT_AFTER_RUN in flags):
-        if ((os.path.exists(DEFAULT_OUTPUT_FILE_NAME)
-                and ask_yes_no_question(f"Found {bcolors.BOLD}{bcolors.OKCYAN}{DEFAULT_OUTPUT_FILE_NAME}{bcolors.ENDC}{bcolors.ENDC} do you want to overwrite it?", default_answer=True))
-                or (not os.path.exists(DEFAULT_OUTPUT_FILE_NAME))):
-            with open(DEFAULT_OUTPUT_FILE_NAME, 'w') as output_file:
-                output_file.write(run_res.stdout)
-            raise_msg(f"Saved Output File! Output File: {bcolors.OKCYAN}'{DEFAULT_OUTPUT_FILE_NAME}'{bcolors.ENDC}", CODE_OK, flags)
+    sys.exit(return_code)
 
 def main():
     argv = sys.argv
