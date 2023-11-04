@@ -185,8 +185,6 @@ def main_compilation(files: list, extension: str, flags: list):
         raise_msg(f"{compilation_res.stderr}\nCompilation Failed. Exiting...", CODE_ERROR, flags, force=True)
 
     # Run executable file
-    run_command = [f'./{executable_filename}']
-    run_res = subprocess.run(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True)
     if (FLAG_NO_RUN not in flags):
         raise_msg("Running...", CODE_OK, flags)
         # Check if executable file exists
