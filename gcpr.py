@@ -171,7 +171,7 @@ def main_compilation(files: list, extension: str, flags: list):
         _, executable_filename = exe_flags[0].split(FLAG_EXE_FILE_SET)
     # Make sure default doesn't overwrite anything
     elif (os.path.exists(DEFAULT_EXE_FILE_NAME)):
-        raise_msg(f"Error: File '{DEFAULT_EXE_FILE_NAME}' already exists.", CODE_ERROR, flags)
+        raise_msg(f"Error: File '{DEFAULT_EXE_FILE_NAME}' already exists.", CODE_ERROR, flags, exit=True)
 
     # Run the compilation
     compile_command = [COMPILATIONS[extension], *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
@@ -180,7 +180,7 @@ def main_compilation(files: list, extension: str, flags: list):
     if (compilation_res.returncode == CODE_OK):
         raise_msg("Compilation Successful!", CODE_OK, flags)
     else:
-        raise_msg(f"{compilation_res.stderr}\nCompilation Failed. Exiting...", CODE_ERROR, flags, force=True)
+        raise_msg("Compilation Failed. Exiting...", CODE_ERROR, flags, exit=True)
 
     return_code = CODE_OK
 
@@ -209,7 +209,7 @@ def main_compilation(files: list, extension: str, flags: list):
     # Delete the executable file unless explicit filename for it was set
     if (not any(exe_flags) and FLAG_EXE_FILE not in flags):
         if (not os.path.exists(executable_filename)):
-            raise_msg("Error: Executable File not found.", CODE_ERROR, flags)
+            raise_msg("Error: Executable File not found.", CODE_ERROR, flags, exit=True)
         os.remove(executable_filename)
     else:
         raise_msg(f"Saved Executable File! Executable File: {bcolors.OKCYAN}'{executable_filename}'{bcolors.ENDC}", CODE_OK, flags)
