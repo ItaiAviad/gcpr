@@ -14,6 +14,7 @@ Optitons:
     -o=<path>       Set the path where to save the executable file
     -q              Quiet Mode - Only print compilation errors and running output contents (no gcpr text)
         *Note*: Quiet Mode disables Interactive Mode (all files will be approved)
+    -lc             Leak Check - Check memory leaks with valgrind
     
 Examples:
     gcpr -h
