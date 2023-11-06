@@ -79,8 +79,10 @@ CODE_OK = 0
 
 # Compilations
 COMPILATION_C = 'gcc'
+COMPILATION_C_STANDARD = '-std=c17'
 COMPILATION_CPP = 'g++'
-COMPILATIONS = {SOURCE_EXTENSIONS[0]: COMPILATION_C, SOURCE_EXTENSIONS[1]: COMPILATION_CPP}
+COMPILATION_CPP_STANDARD = '-std=c++14'
+COMPILATIONS = {SOURCE_EXTENSIONS[0]: (COMPILATION_C, COMPILATION_CPP_STANDARD), SOURCE_EXTENSIONS[1]: (COMPILATION_CPP, COMPILATION_CPP_STANDARD)}
 
 
 def raise_msg(msg: str, code: int, flags: list = [], color: bool = True, exit: bool = False, force: bool = False) -> None:
@@ -180,7 +182,7 @@ def main_compilation(files: list, extension: str, flags: list):
         raise_msg(f"Error: File '{DEFAULT_EXE_FILE_NAME}' already exists.", CODE_ERROR, flags, exit=True)
 
     # Run the compilation
-    compile_command = [COMPILATIONS[extension], *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
+    compile_command = [*COMPILATIONS[extension], *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
     compilation_res = subprocess.run(compile_command)
 
     if (compilation_res.returncode == CODE_OK):
