@@ -164,6 +164,45 @@ def get_files_data(argv: list, flags: list) -> (list, str):
 
     return (files, extension)
 
+def run_with_valgrind(executable_filename: str, flags: list) -> int:
+    # Check if valgrind is installed
+    which_valgrind_command = 'which valgrind'
+    try:
+        subprocess.check_output(which_valgrind_command, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
+    except subprocess.CalledProcessError:
+        raise_msg("Valgrind not found! Process exited with code [1].", CODE_ERROR, flags, force=True)
+    except FileNotFoundError:
+        raise_msg("The 'which' command is not available on this system! Process exited with code [1].", CODE_ERROR, flags, force=True)
+
+    # Run
+    raise_msg("Checking memory leaks...", CODE_OK, flags)
+    lc_command = COMMAND_VALGRIND_LEAK_CHECK % executable_filename
+    lc_res = subprocess.run(lc_command, shell=True)
+
+    raise_msg(f"Leak Check Done! Process exited with code [{lc_res.returncode}].", lc_res.returncode, flags)  
+
+    return lc_res.returncode
+
+def run_executable(executable_filename: str, flags: list):
+    raise_msg("Running...", CODE_OK, flags)
+    run_command = [f'./{executable_filename}']
+    run_res = subprocess.run(run_command, shell=True)
+
+    return_code = run_res.returncode
+
+    # Print "Done! Exited with code {code}" and make the code green/red
+    #   based on it's value.
+    raise_msg(
+        f"{bcolors.BOLD}{bcolors.OKGREEN}Done! {bcolors.ENDC}"
+        + (bcolors.FAIL if return_code else bcolors.OKGREEN)
+        + f"Process exited with code [{return_code}].{bcolors.ENDC}{bcolors.ENDC}",
+        CODE_OK,
+        flags,
+        color=False,
+    )
+
+    return return_code
+
 
 def main_compilation(files: list, extension: str, flags: list):
     # Compile the given files with the given flags
@@ -192,44 +231,17 @@ def main_compilation(files: list, extension: str, flags: list):
 
     return_code = CODE_OK
 
-    # Run executable file
-    if (FLAG_NO_RUN not in flags and FLAG_LEAK_CHECK not in flags):
-        raise_msg("Running...", CODE_OK, flags)
-        # Check if executable file exists
-        if (not os.path.exists(executable_filename)):
-            raise_msg("Error: Executable File not found.", CODE_ERROR, flags)
-        run_command = [f'./{executable_filename}']
-        run_res = subprocess.run(run_command, shell=True)
-
-        return_code = run_res.returncode
-
-        # Print "Done! Exited with code {code}" and make the code green/red
-        #   based on it's value.
-        raise_msg(
-            f"{bcolors.BOLD}{bcolors.OKGREEN}Done! {bcolors.ENDC}"
-            + (bcolors.FAIL if return_code else bcolors.OKGREEN)
-            + f"Process exited with code [{return_code}].{bcolors.ENDC}{bcolors.ENDC}",
-            CODE_OK,
-            flags,
-            color=False,
-        )
+    # Check if executable file exists
+    if (not os.path.exists(executable_filename)):
+        raise_msg("Error: Executable File not found.", CODE_ERROR, flags)
 
     # Run valgrind leak check if flag
-    if (FLAG_LEAK_CHECK in flags and os.path.exists(executable_filename)):
-        # Check if valgrind is installed
-        which_valgrind_command = 'which valgrind'
-        try:
-            subprocess.check_output(which_valgrind_command, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
+    if (FLAG_LEAK_CHECK in flags):
+        return_code = run_with_valgrind(executable_filename, flags)
+    # Run executable file
+    elif (FLAG_NO_RUN not in flags):
+        return_code = run_executable(executable_filename, flags)
 
-            raise_msg("Checking memory leaks...", CODE_OK, flags)
-            lc_command = COMMAND_VALGRIND_LEAK_CHECK % executable_filename
-            lc_res = subprocess.run(lc_command, shell=True)
-            
-            raise_msg(f"Leak Check Done! Process exited with code [{lc_res.returncode}].", lc_res.returncode, flags)  
-        except subprocess.CalledProcessError:
-            raise_msg("Valgrind not found! Process exited with code [1].", CODE_ERROR, flags, force=True)
-        except FileNotFoundError:
-            raise_msg("The 'which' command is not available on this system! Process exited with code [1].", CODE_ERROR, flags, force=True)
 
 
     # Delete the executable file unless explicit filename for it was set
