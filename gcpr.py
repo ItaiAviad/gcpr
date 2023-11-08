@@ -229,30 +229,32 @@ def main_compilation(files: list, extension: str, flags: list):
     else:
         raise_msg("Compilation Failed. Exiting...", CODE_ERROR, flags, exit=True)
 
-    return_code = CODE_OK
-
     # Check if executable file exists
     if (not os.path.exists(executable_filename)):
         raise_msg("Error: Executable File not found.", CODE_ERROR, flags)
 
-    # Run valgrind leak check if flag
-    if (FLAG_LEAK_CHECK in flags):
-        return_code = run_with_valgrind(executable_filename, flags)
-    # Run executable file
-    elif (FLAG_NO_RUN not in flags):
-        return_code = run_executable(executable_filename, flags)
+    try:
+        # Run valgrind leak check if flag
+        if (FLAG_LEAK_CHECK in flags):
+            return_code = run_with_valgrind(executable_filename, flags)
+        # Run executable file
+        elif (FLAG_NO_RUN not in flags):
+            return_code = run_executable(executable_filename, flags)
+        else:
+            return_code = CODE_OK
 
+        sys.exit(return_code)
+    except KeyboardInterrupt:
+        raise_msg("Received a KeyboardInterrupt", CODE_OK, flags)
+    finally:
+        # Delete the executable file unless explicit filename for it was set
+        if (not any(exe_flags) and FLAG_EXE_FILE not in flags):
+            if (not os.path.exists(executable_filename)):
+                raise_msg("Error: Executable File not found.", CODE_ERROR, flags, exit=True)
+            os.remove(executable_filename)
+        else:
+            raise_msg(f"Saved Executable File! Executable File: {bcolors.OKCYAN}'{executable_filename}'{bcolors.ENDC}", CODE_OK, flags)
 
-
-    # Delete the executable file unless explicit filename for it was set
-    if (not any(exe_flags) and FLAG_EXE_FILE not in flags):
-        if (not os.path.exists(executable_filename)):
-            raise_msg("Error: Executable File not found.", CODE_ERROR, flags, exit=True)
-        os.remove(executable_filename)
-    else:
-        raise_msg(f"Saved Executable File! Executable File: {bcolors.OKCYAN}'{executable_filename}'{bcolors.ENDC}", CODE_OK, flags)
-
-    sys.exit(return_code)
 
 def main():
     argv = sys.argv
