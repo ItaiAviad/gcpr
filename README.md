@@ -15,7 +15,7 @@ Optitons:
     -q              Quiet Mode - Only print compilation errors and running output contents (no gcpr text)
         *Note*: Quiet Mode disables Interactive Mode (all files will be approved)
     -lc=<name>      Leak Check - Check memory leaks (deafult = g++ -fsanitize=address)
-        *Note*: Available leak checks - default, valgrind
+        *Note*: Available leak checks - gcc/g++ -fsanitize, valgrind
     
 Examples:
     gcpr -h

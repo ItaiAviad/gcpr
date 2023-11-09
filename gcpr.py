@@ -68,8 +68,8 @@ Optitons:
     -o=<path>       Set the path where to save the executable file
     -q              Quiet Mode - Only print compilation errors and running output contents (no {COMMAND_MAIN} text)
         *Note*: Quiet Mode disables Interactive Mode (all files will be approved)
-    -lc=<name>      Leak Check - Check memory leaks (default = g++ -fsanitize=address)
-        *Note*: Available leak checks - default, valgrind
+    -lc=<name>      Leak Check - Check memory leaks (default = gcc/g++ -fsanitize=address)
+        *Note*: Available leak checks - gcc/g++ -fsanitize, valgrind
 
 Examples:
     {COMMAND_MAIN} -h
