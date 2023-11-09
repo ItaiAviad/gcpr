@@ -33,15 +33,19 @@ FLAG_MAX_LEN = 2
 FLAG_HELP = 'h'
 # Define a regular expression pattern to match the -o=<file_name> pattern
 FLAG_EXE_FILE = 'o'
-FLAG_EXE_FILE_SET = '='
+FLAG_SET = '='
 FLAG_NO_RUN = 'nr'
 FLAG_INTERACTIVE = 'i'
 FLAG_QUIET = 'q'
 FLAG_LEAK_CHECK = 'lc'
 
+# Leak checks
+COMMAND_VALGRIND = 'valgrind'
 COMMAND_VALGRIND_LEAK_CHECK = 'valgrind --leak-check=full --show-reachable=yes --show-leak-kinds=all --error-limit=no --quiet ./%s'
 COMMAND_VALGRIND_LEAK_FOUND = 'definitely lost'
-
+COMMAND_GCC_LEAK_CHECK = '-fsanitize=%s'
+COMMAND_DEFAULT_GCC_LEAK_CHECK = 'address'
+COMMAND_EXTERNAL_LEAK_CHECKS = [COMMAND_VALGRIND]
 
 DOT = '.'
 
@@ -64,8 +68,9 @@ Optitons:
     -o=<path>       Set the path where to save the executable file
     -q              Quiet Mode - Only print compilation errors and running output contents (no {COMMAND_MAIN} text)
         *Note*: Quiet Mode disables Interactive Mode (all files will be approved)
-    -lc             Leak Check - Check memory leaks with valgrind
-    
+    -lc=<name>      Leak Check - Check memory leaks (default = g++ -fsanitize=address)
+        *Note*: Available leak checks - default, valgrind
+
 Examples:
     {COMMAND_MAIN} -h
     {COMMAND_MAIN} -o=run_me *.c
@@ -164,17 +169,24 @@ def get_files_data(argv: list, flags: list) -> (list, str):
 
     return (files, extension)
 
-def run_with_valgrind(executable_filename: str, flags: list) -> int:
-    # Check if valgrind is installed
-    which_valgrind_command = 'which valgrind'
+def check_package_availability(pkg_name, flags):
+    # Check if the given package is installed on the system
+
+    which_pkg_command = f'which {pkg_name}'
     try:
-        subprocess.check_output(which_valgrind_command, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
+        subprocess.check_output(which_pkg_command, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
     except subprocess.CalledProcessError:
-        raise_msg("Valgrind not found! Process exited with code [1].", CODE_ERROR, flags, force=True)
+        raise_msg(f"'{pkg_name}' not found! Process exited with code [{CODE_ERROR}].", CODE_ERROR, flags, force=True)
+        return False
     except FileNotFoundError:
         raise_msg("The 'which' command is not available on this system! Process exited with code [1].", CODE_ERROR, flags, force=True)
+        return False
+    
+    return True
 
-    # Run
+def run_with_valgrind(executable_filename: str, flags: list) -> int:
+    # Run the executable with valgrind
+    
     raise_msg("Checking memory leaks...", CODE_OK, flags)
     lc_command = COMMAND_VALGRIND_LEAK_CHECK % executable_filename
     lc_res = subprocess.run(lc_command, shell=True)
@@ -209,19 +221,38 @@ def main_compilation(files: list, extension: str, flags: list):
 
     raise_msg(f"Compiling {bcolors.BOLD}{bcolors.OKCYAN}{len(files)}{bcolors.ENDC}{bcolors.ENDC} files...", CODE_OK, flags, color=False, exit=False)
 
+    custom_leak_check_command = ''
     executable_filename = DEFAULT_EXE_FILE_NAME
 
-    exe_flags = [flag for flag in flags if flag.startswith(f"{FLAG_EXE_FILE}{FLAG_EXE_FILE_SET}")]
+    exe_flags = [flag for flag in flags if flag.startswith(f"{FLAG_EXE_FILE}{FLAG_SET}")]
+    lc_flags = [flag for flag in flags if flag.startswith(f"{FLAG_LEAK_CHECK}{FLAG_SET}")]
 
     if (any(exe_flags)):
         # Get the executable_name from the first flag (discard others)
-        _, executable_filename = exe_flags[0].split(FLAG_EXE_FILE_SET)
+        _, executable_filename = exe_flags[0].split(FLAG_SET)
     # Make sure default doesn't overwrite anything
     elif (os.path.exists(DEFAULT_EXE_FILE_NAME)):
         raise_msg(f"Error: File '{DEFAULT_EXE_FILE_NAME}' already exists.", CODE_ERROR, flags, exit=True)
 
+    if (any(lc_flags)):
+        # Append leak check flag to flags
+        flags.append(FLAG_LEAK_CHECK)
+
+        # Get the leak check
+        _, custom_leak_check_command = lc_flags[0].split(FLAG_SET)
+
+        COMMAND_EXTERNAL_LEAK_CHECKS
+    
     # Run the compilation
-    compile_command = [*COMPILATIONS[extension], *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
+    compilation_flags = ['-g']
+    if FLAG_LEAK_CHECK in flags and custom_leak_check_command not in COMMAND_EXTERNAL_LEAK_CHECKS:
+        if (not custom_leak_check_command):
+            # Add default leak check
+            compilation_flags.append(COMMAND_GCC_LEAK_CHECK % COMMAND_DEFAULT_GCC_LEAK_CHECK)
+        else:
+            compilation_flags.append(COMMAND_GCC_LEAK_CHECK % custom_leak_check_command)
+
+    compile_command = [*COMPILATIONS[extension], *compilation_flags, *files, f"{FLAG_PREFIX}{FLAG_EXE_FILE}", executable_filename]
     compilation_res = subprocess.run(compile_command)
 
     if (compilation_res.returncode == CODE_OK):
@@ -234,9 +265,15 @@ def main_compilation(files: list, extension: str, flags: list):
         raise_msg("Error: Executable File not found.", CODE_ERROR, flags)
 
     try:
-        # Run valgrind leak check if flag
-        if (FLAG_LEAK_CHECK in flags):
-            return_code = run_with_valgrind(executable_filename, flags)
+        # Run leak check if flag
+        if (FLAG_LEAK_CHECK in flags and custom_leak_check_command in COMMAND_EXTERNAL_LEAK_CHECKS):
+            if (custom_leak_check_command == COMMAND_VALGRIND):
+                # Check if package exists (exit if not)
+                return_code = check_package_availability(custom_leak_check_command, flags)
+                # Run with valgrind
+                return_code = run_with_valgrind(executable_filename, flags)
+            else:
+                return_code = CODE_ERROR
         # Run executable file
         elif (FLAG_NO_RUN not in flags):
             return_code = run_executable(executable_filename, flags)
@@ -245,7 +282,7 @@ def main_compilation(files: list, extension: str, flags: list):
 
         sys.exit(return_code)
     except KeyboardInterrupt:
-        raise_msg("Received a KeyboardInterrupt", CODE_OK, flags)
+        raise_msg("Received a KeyboardInterrupt", CODE_ERROR, flags)
     finally:
         # Delete the executable file unless explicit filename for it was set
         if (not any(exe_flags) and FLAG_EXE_FILE not in flags):
